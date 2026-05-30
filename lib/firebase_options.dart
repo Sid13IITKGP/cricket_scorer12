@@ -83,4 +83,5 @@ class DefaultFirebaseOptions {
     authDomain: 'cricket-scoring-1fbdb.firebaseapp.com',
     storageBucket: 'cricket-scoring-1fbdb.firebasestorage.app',
   );
+
 }
