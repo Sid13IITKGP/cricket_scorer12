@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -16,10 +17,28 @@ class StartMatchScreen extends StatefulWidget {
   State<StartMatchScreen> createState() => _StartMatchScreenState();
 }
 
-class _StartMatchScreenState extends State<StartMatchScreen> {
+class _StartMatchScreenState extends State<StartMatchScreen> with SingleTickerProviderStateMixin {
   final TextEditingController matchNameController = TextEditingController();
   final TextEditingController oversController = TextEditingController();
   bool _isSubmitting = false;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    matchNameController.dispose();
+    oversController.dispose();
+    super.dispose();
+  }
 
   String _buildMatchCode() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -45,7 +64,7 @@ class _StartMatchScreenState extends State<StartMatchScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a match name and a valid overs per innings.'),
+          content: Text('Please enter a match name and valid overs per innings.'),
         ),
       );
       return;
@@ -98,7 +117,7 @@ class _StartMatchScreenState extends State<StartMatchScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not start match: $error')),
+          SnackBar(content: Text('Error: $error')),
         );
       }
     } finally {
@@ -115,132 +134,266 @@ class _StartMatchScreenState extends State<StartMatchScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Start Match"),
+        title: const Text("Start Match", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
         elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1F2A45), Color(0xFF27395E)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha((0.25 * 255).round()),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+            ScaleTransition(
+              scale: Tween<double>(begin: 0.85, end: 1.0).animate(
+                CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
               ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Match Setup',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withOpacity(0.14),
+                      AppColors.secondary.withOpacity(0.12),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                ),
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(CupertinoIcons.sportscourt, color: AppColors.primary, size: 40),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Match Setup',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Set the overs per innings and start scoring live for your players and viewers.',
-                    style: TextStyle(color: Colors.white70, fontSize: 15),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      'Configure your match and start scoring in real-time.',
+                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 15, height: 1.5),
+                    ),
+                  ],
+                ),
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: matchNameController,
-                    decoration: InputDecoration(
-                      labelText: 'Match Name',
-                      hintText: 'e.g. City Cup Final',
-                      filled: true,
-                      fillColor: Colors.black12,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
+            const SizedBox(height: 32),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 700),
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 40 * (1 - value)),
+                    child: child,
                   ),
-
-                  const SizedBox(height: 20),
-
-                  TextField(
-                    controller: oversController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Overs per Innings',
-                      hintText: '20',
-                      filled: true,
-                      fillColor: Colors.black12,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.card.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _BuildTextField(
+                      label: 'Match Name',
+                      hint: 'e.g., City Cup Final',
+                      icon: CupertinoIcons.sportscourt,
+                      controller: matchNameController,
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 58,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _createMatch,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                    const SizedBox(height: 24),
+                    _BuildTextField(
+                      label: 'Overs per Innings',
+                      hint: '20',
+                      icon: CupertinoIcons.clock,
+                      controller: oversController,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 62,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _isSubmitting ? null : _createMatch,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: _isSubmitting
+                                  ? const SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation(Colors.black87),
+                                        strokeWidth: 3,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: const [
+                                        Icon(CupertinoIcons.play_fill, color: Colors.black87, size: 20),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Start Match',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.black87,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
                         ),
                       ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation(Colors.black),
-                                strokeWidth: 2.5,
-                              ),
-                            )
-                          : const Text(
-                              'Start Match',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                '✓ Your match code will be generated automatically\n✓ Share it with players to join\n✓ You can transfer host permissions anytime',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withOpacity(0.5),
+                  height: 1.8,
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BuildTextField extends StatefulWidget {
+  final String label;
+  final String hint;
+  final IconData icon;
+  final TextEditingController controller;
+  final TextInputType keyboardType;
+  final Function(String) onChanged;
+
+  const _BuildTextField({
+    required this.label,
+    required this.hint,
+    required this.icon,
+    required this.controller,
+    required this.onChanged,
+    this.keyboardType = TextInputType.text,
+  });
+
+  @override
+  State<_BuildTextField> createState() => _BuildTextFieldState();
+}
+
+class _BuildTextFieldState extends State<_BuildTextField> {
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                Colors.black12,
+                Colors.black26,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: TextField(
+            controller: widget.controller,
+            focusNode: _focusNode,
+            keyboardType: widget.keyboardType,
+            onChanged: widget.onChanged,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+              prefixIcon: Icon(widget.icon, color: AppColors.primary),
+              filled: false,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white10),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white10),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: AppColors.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

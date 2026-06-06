@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/auth_service.dart';
 import '../../match/models/match_model.dart';
@@ -40,17 +41,28 @@ class MatchScoreScreen extends StatefulWidget {
   State<MatchScoreScreen> createState() => _MatchScoreScreenState();
 }
 
-class _MatchScoreScreenState extends State<MatchScoreScreen> {
+class _MatchScoreScreenState extends State<MatchScoreScreen> with SingleTickerProviderStateMixin {
   final List<_ScoreAction> _actionHistory = [];
   bool _isUpdating = false;
   bool _joinedMatch = false;
   String _currentUserId = '';
   String _currentUserName = 'Guest';
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUser() async {
@@ -566,322 +578,444 @@ class _MatchScoreScreenState extends State<MatchScoreScreen> {
             ],
           ),
           body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(24),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.92, end: 1.0),
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeOut,
+                  builder: (context, scale, child) => Transform.scale(
+                    scale: scale,
+                    child: FadeTransition(
+                      opacity: AlwaysStoppedAnimation(0.85 + (scale - 0.92) * (1.0 - 0.85) / (1.0 - 0.92)),
+                      child: child,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Match Code',
-                                style: TextStyle(fontSize: 14, color: Colors.white70),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Text(
-                                    match.code,
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  ClipOval(
-                                    child: Material(
-                                      color: Colors.white12,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.copy, size: 18),
+                  child: Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: Colors.white10, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Match Code',
+                                  style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Text(
+                                      match.code,
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w900,
                                         color: Colors.white,
-                                        padding: const EdgeInsets.all(10),
-                                        tooltip: 'Copy match code',
-                                        onPressed: () {
-                                          Clipboard.setData(ClipboardData(text: match.code));
-                                          _showSnackBar('Match code copied to clipboard');
-                                        },
+                                        letterSpacing: 1.5,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Host: ${currentHostName == _currentUserName ? 'You' : currentHostName}',
-                                style: const TextStyle(fontSize: 14, color: Colors.white70),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Innings ${match.currentInnings}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _InningsSummaryChip(
-                            label: '1st Innings',
-                            value: match.innings[0].oversCompleted == 0
-                                ? 'Yet to bat'
-                                : '${match.innings[0].runs}/${match.innings[0].wickets} • ${match.innings[0].formattedOvers}',
-                          ),
-                          _InningsSummaryChip(
-                            label: '2nd Innings',
-                            value: match.currentInnings == 2 || match.innings[1].oversCompleted > 0
-                                ? '${match.innings[1].runs}/${match.innings[1].wickets} • ${match.innings[1].formattedOvers}'
-                                : 'Waiting',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Current Over',
-                            style: TextStyle(fontSize: 12, color: Colors.white70),
-                          ),
-                          Text(
-                            '${match.balls}/6 balls',
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white10,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: match.currentOver.isEmpty
-                              ? [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white12,
-                                      borderRadius: BorderRadius.circular(16),
+                                    const SizedBox(width: 12),
+                                    ClipOval(
+                                      child: Material(
+                                        color: AppColors.primary.withOpacity(0.15),
+                                        child: IconButton(
+                                          icon: Icon(CupertinoIcons.doc_on_doc, size: 18, color: AppColors.primary),
+                                          color: AppColors.primary,
+                                          padding: const EdgeInsets.all(10),
+                                          tooltip: 'Copy match code',
+                                          onPressed: () {
+                                            Clipboard.setData(ClipboardData(text: match.code));
+                                            _showSnackBar('Match code copied to clipboard');
+                                          },
+                                        ),
+                                      ),
                                     ),
-                                    child: const Text('New over', style: TextStyle(color: Colors.white70)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Host: ${currentHostName == _currentUserName ? 'You' : currentHostName}',
+                                  style: const TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [AppColors.secondary.withOpacity(0.2), AppColors.primary.withOpacity(0.2)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: AppColors.secondary.withOpacity(0.3), width: 1),
                                   ),
-                                ]
-                              : match.currentOver
-                                  .map(
-                                    (ball) => Container(
+                                  child: Text(
+                                    'Innings ${match.currentInnings}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _InningsSummaryChip(
+                              label: '1st Innings',
+                              value: match.innings[0].oversCompleted == 0
+                                  ? 'Yet to bat'
+                                  : '${match.innings[0].runs}/${match.innings[0].wickets} • ${match.innings[0].formattedOvers}',
+                            ),
+                            _InningsSummaryChip(
+                              label: '2nd Innings',
+                              value: match.currentInnings == 2 || match.innings[1].oversCompleted > 0
+                                  ? '${match.innings[1].runs}/${match.innings[1].wickets} • ${match.innings[1].formattedOvers}'
+                                  : 'Waiting',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Current Over',
+                              style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              '${match.balls}/6 balls',
+                              style: const TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white10, width: 1),
+                          ),
+                          child: Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: match.currentOver.isEmpty
+                                ? [
+                                    Container(
                                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                                       decoration: BoxDecoration(
                                         color: Colors.white12,
                                         borderRadius: BorderRadius.circular(16),
                                       ),
-                                      child: Text(ball, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      child: const Text('New over', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
                                     ),
-                                  )
-                                  .toList(),
+                                  ]
+                                : match.currentOver
+                                    .map(
+                                      (ball) => Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white12,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Text(ball, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                                      ),
+                                    )
+                                    .toList(),
+                          ),
                         ),
+                        const SizedBox(height: 22),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _MatchStatTile(
+                                label: 'Overs',
+                                value: '${match.formattedOvers}/${match.totalOvers}',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _MatchStatTile(
+                                label: 'Runs',
+                                value: '${match.runs}',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _MatchStatTile(
+                                label: 'Wkts',
+                                value: '${match.wickets}',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _MatchStatTile(
+                                label: 'Extras',
+                                value: '${match.extras}',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                if (!canScore)
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.easeOut,
+                    builder: (context, opacity, child) => FadeTransition(
+                      opacity: AlwaysStoppedAnimation(opacity),
+                      child: child,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.card.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white10, width: 1),
                       ),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _MatchStatTile(
-                              label: 'Overs',
-                              value: '${match.formattedOvers}/${match.totalOvers}',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _MatchStatTile(
-                              label: 'Runs',
-                              value: '${match.runs}',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _MatchStatTile(
-                              label: 'Wkts',
-                              value: '${match.wickets}',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _MatchStatTile(
-                              label: 'Extras',
-                              value: '${match.extras}',
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        isComplete
+                            ? 'Match ended. All users are viewers now.'
+                            : _isCurrentHost(match)
+                                ? 'Innings complete. Start second innings or end the match below.'
+                                : 'You are viewing this live match. Only the current host can score.',
+                        style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ),
+                if (!canScore) const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.08),
+                        blurRadius: 25,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _AnimatedScoreButton(
+                        index: 0,
+                        label: '+1',
+                        color: AppColors.primary,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(runs: 1, balls: 1, label: '+1'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 1,
+                        label: '+2',
+                        color: AppColors.secondary,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(runs: 2, balls: 1, label: '+2'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 2,
+                        label: '+3',
+                        color: Colors.teal.shade400,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(runs: 3, balls: 1, label: '+3'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 3,
+                        label: '+4',
+                        color: Colors.orangeAccent.shade200,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(runs: 4, balls: 1, label: '+4'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 4,
+                        label: '+6',
+                        color: AppColors.six,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(runs: 6, balls: 1, label: '+6'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 5,
+                        label: 'W',
+                        color: AppColors.wicket,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(wickets: 1, balls: 1, label: 'Wicket'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 6,
+                        label: '.',
+                        color: Colors.grey.shade700,
+                        onPressed: canScore
+                            ? () => _applyScoreAction(
+                                  match,
+                                  const _ScoreAction(balls: 1, label: 'Dot Ball'),
+                                )
+                            : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 7,
+                        label: 'E',
+                        color: Colors.blueGrey,
+                        onPressed: canScore ? () => _showExtraPicker(context, match) : null,
+                      ),
+                      _AnimatedScoreButton(
+                        index: 8,
+                        label: 'Revert',
+                        color: Colors.redAccent.shade200,
+                        onPressed: canScore ? () => _revertLastDecision(match) : null,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                if (!canScore)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      isComplete
-                          ? 'Match ended. All users are viewers now.'
-                          : _isCurrentHost(match)
-                              ? 'Innings complete. Start second innings or end the match below.'
-                              : 'You are viewing this live match. Only the current host can score.',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                if (!canScore) const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _ScoreButton(
-                      label: '+1',
-                      color: AppColors.primary,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(runs: 1, balls: 1, label: '+1'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: '+2',
-                      color: AppColors.secondary,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(runs: 2, balls: 1, label: '+2'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: '+3',
-                      color: Colors.teal.shade400,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(runs: 3, balls: 1, label: '+3'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: '+4',
-                      color: Colors.orangeAccent.shade200,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(runs: 4, balls: 1, label: '+4'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: '+6',
-                      color: AppColors.six,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(runs: 6, balls: 1, label: '+6'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: 'W',
-                      color: AppColors.wicket,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(wickets: 1, balls: 1, label: 'Wicket'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: '.',
-                      color: Colors.grey.shade700,
-                      onPressed: canScore
-                          ? () => _applyScoreAction(
-                                match,
-                                const _ScoreAction(balls: 1, label: 'Dot Ball'),
-                              )
-                          : null,
-                    ),
-                    _ScoreButton(
-                      label: 'E',
-                      color: Colors.blueGrey,
-                      onPressed: canScore ? () => _showExtraPicker(context, match) : null,
-                    ),
-                    _ScoreButton(
-                      label: 'Revert',
-                      color: Colors.redAccent.shade200,
-                      onPressed: canScore ? () => _revertLastDecision(match) : null,
-                    ),
-                  ],
-                ),
                 if (showEndInnings) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () => _confirmEndFirstInnings(match),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.secondary,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
+                  const SizedBox(height: 20),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOut,
+                    builder: (context, opacity, child) => FadeTransition(
+                      opacity: AlwaysStoppedAnimation(opacity),
+                      child: child,
+                    ),
+                    child: SizedBox(
+                      height: 56,
+                      child: Container(
+                        decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
+                          gradient: LinearGradient(
+                            colors: [AppColors.secondary, AppColors.secondary.withOpacity(0.8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.secondary.withOpacity(0.25),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: const Text(
-                        'End Innings',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        child: ElevatedButton(
+                          onPressed: () => _confirmEndFirstInnings(match),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.black,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text(
+                            'End Innings',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ],
                 if (showEndMatch) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: () => _endMatch(match),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.wicket,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
+                  const SizedBox(height: 20),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeOut,
+                    builder: (context, opacity, child) => FadeTransition(
+                      opacity: AlwaysStoppedAnimation(opacity),
+                      child: child,
+                    ),
+                    child: SizedBox(
+                      height: 56,
+                      child: Container(
+                        decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
+                          gradient: LinearGradient(
+                            colors: [AppColors.wicket, AppColors.wicket.withOpacity(0.8)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.wicket.withOpacity(0.25),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                      ),
-                      child: const Text(
-                        'End Match',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        child: ElevatedButton(
+                          onPressed: () => _endMatch(match),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.black,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          child: const Text(
+                            'End Match',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -895,38 +1029,117 @@ class _MatchScoreScreenState extends State<MatchScoreScreen> {
   }
 }
 
-class _ScoreButton extends StatelessWidget {
+class _AnimatedScoreButton extends StatefulWidget {
   final String label;
   final Color color;
   final VoidCallback? onPressed;
+  final int index;
 
-  const _ScoreButton({
+  const _AnimatedScoreButton({
     required this.label,
     required this.color,
     required this.onPressed,
+    required this.index,
   });
 
   @override
+  State<_AnimatedScoreButton> createState() => _AnimatedScoreButtonState();
+}
+
+class _AnimatedScoreButtonState extends State<_AnimatedScoreButton> with SingleTickerProviderStateMixin {
+  late AnimationController _hoverController;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: onPressed == null ? Colors.white12 : color,
-        foregroundColor: onPressed == null ? Colors.white54 : Colors.black,
-        minimumSize: const Size(72, 72),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 600 + (widget.index * 40)),
+      curve: Curves.easeOut,
+      builder: (context, opacity, child) => Transform.translate(
+        offset: Offset(0, (1 - opacity) * 20),
+        child: FadeTransition(
+          opacity: AlwaysStoppedAnimation(opacity),
+          child: child,
         ),
       ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      child: GestureDetector(
+        onTapDown: (_) => _hoverController.forward(),
+        onTapUp: (_) => _hoverController.reverse(),
+        onTapCancel: () => _hoverController.reverse(),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 1.0, end: 0.92).animate(
+            CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+          ),
+          child: Container(
+            height: 78,
+            width: 78,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: widget.onPressed == null
+                  ? LinearGradient(
+                      colors: [Colors.white12, Colors.white12.withOpacity(0.6)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [widget.color, widget.color.withOpacity(0.85)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.onPressed == null ? Colors.transparent : widget.color.withOpacity(0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+              border: Border.all(
+                color: widget.color.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onPressed,
+                borderRadius: BorderRadius.circular(999),
+                child: Center(
+                  child: Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: widget.onPressed == null ? Colors.white54 : Colors.black,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
+
+
 
 class _InningsSummaryChip extends StatelessWidget {
   final String label;
@@ -937,17 +1150,22 @@ class _InningsSummaryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
       decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          colors: [Colors.white12, Colors.white12.withOpacity(0.6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 6),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -965,23 +1183,35 @@ class _MatchStatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white10,
+        gradient: LinearGradient(
+          colors: [Colors.white12, Colors.white12.withOpacity(0.6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.3),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],

@@ -21,6 +21,14 @@ class FirestoreService {
             .toList());
   }
 
+  static Stream<List<MatchModel>> watchMatchesForUser(String uid) {
+    return watchMatches().map((matches) => matches
+        .where((match) => match.hostId == uid ||
+            match.currentHostId == uid ||
+            match.participants.any((participant) => participant['uid'] == uid))
+        .toList());
+  }
+
   static Stream<MatchModel> watchMatch(String matchId) {
     return matches.doc(matchId).snapshots().map(
           (snapshot) => MatchModel.fromSnapshot(snapshot),

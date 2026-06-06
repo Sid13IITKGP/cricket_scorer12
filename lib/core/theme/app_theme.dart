@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
@@ -18,6 +19,14 @@ class AppTheme {
       primary: AppColors.primary,
       secondary: AppColors.secondary,
     ),
+
+    pageTransitionsTheme: PageTransitionsTheme(builders: {
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      TargetPlatform.windows: OpenUpwardsPageTransitionsBuilder(),
+      TargetPlatform.linux: OpenUpwardsPageTransitionsBuilder(),
+    }),
 
     textTheme: const TextTheme(
       headlineMedium: TextStyle(
